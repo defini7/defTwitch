@@ -1,7 +1,5 @@
 #include "defTwitch.hpp"
 
-#include <iostream>
-
 namespace def::twitch
 {
 	Chat::Chat(const std::string& auth, const std::string& nick)
