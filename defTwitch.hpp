@@ -11,12 +11,35 @@
 
 namespace def::twitch
 {
-	constexpr size_t RESPONCE_SIZE = 128;
+	constexpr size_t RESPONCE_SIZE = 1024;
+	constexpr uint32_t INVALID_AUTHOR_ID = uint32_t(-1);
+
+	struct Message
+	{
+		enum class Type
+		{
+			MESSAGE,
+			JOIN,
+			LEAVE,
+			INVALID
+		} type = Type::INVALID;
+
+		struct
+		{
+			uint32_t id;
+			std::string name;
+
+			bool isMod;
+		} author;
+
+		std::string id;
+		std::string text;
+	};
 
 	class Chat
 	{
 	public:
-		Chat() = default;
+		Chat();
 		Chat(const std::string& auth, const std::string& nick);
 		virtual ~Chat();
 
@@ -30,7 +53,7 @@ namespace def::twitch
 		void Send(const std::string& text);
 		void Reply(const std::string& message_id, const std::string& text);
 
-		virtual bool OnUserMessage(const std::string& message_id, const std::string& name, const std::string& text) = 0;
+		virtual bool OnMessage(const Message& message) = 0;
 
 	private:
 		static bool InitialiseWSA();
