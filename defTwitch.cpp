@@ -1,7 +1,14 @@
 #include "defTwitch.hpp"
 
+#include <iostream>
+
 namespace def::twitch
 {
+	Chat::Chat()
+	{
+		m_Socket = INVALID_SOCKET;
+	}
+
 	Chat::Chat(const std::string& auth, const std::string& nick)
 	{
 		Initialise(auth, nick);
@@ -24,12 +31,17 @@ namespace def::twitch
 		SendToSocket("NICK " + nick + "\r\n");
 		SendToSocket("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership\r\n");
 
+		u_long mode = 0;
+
+		if (ioctlsocket(m_Socket, FIONBIO, &mode) != NO_ERROR)
+			return false;
+
 		char responce[RESPONCE_SIZE];
 		std::string buffer;
 
 		while (1)
 		{
-			int count = recv(m_Socket, responce, 128, 0);
+			int count = recv(m_Socket, responce, RESPONCE_SIZE, 0);
 
 			for (int i = 0; i < count; i++)
 			{
@@ -119,7 +131,7 @@ namespace def::twitch
 
 		while (m_Running)
 		{
-			int count = recv(m_Socket, responce, 128, 0);
+			int count = recv(m_Socket, responce, RESPONCE_SIZE, 0);
 
 			for (int i = 0; i < count; i++)
 			{
@@ -127,25 +139,78 @@ namespace def::twitch
 
 				if (responce[i] == '\n')
 				{
-					if (buffer.find("PRIVMSG") != std::string::npos)
+					if (buffer == "PING :tmi.twitch.tv\r\n")
+						SendToSocket("PONG :tmi.twitch.tv\r\n");
+					else
 					{
-						size_t message_info_start = buffer.find("user-type=");
-						size_t colon = buffer.find(':', message_info_start) + 1;
-						size_t after_name = buffer.find('!', message_info_start);
-						size_t before_message = buffer.find(':', after_name);
-						size_t message_id_start = buffer.find("id=") + 3;
-						size_t message_id_end = buffer.find(';', message_id_start);
+						auto has = [&buffer = buffer](const std::string& text, size_t& pos)
+							{
+								pos = buffer.find(text);
+								return pos != std::string::npos;
+							};
 
-						std::string name = buffer.substr(colon, after_name - colon);
-						std::string message = buffer.substr(before_message + 1);
-						std::string message_id = buffer.substr(message_id_start, message_id_end - message_id_start);
+						size_t pos = buffer.find("tmi.twitch.tv");
 
-						// Remove \r\n
-						message.pop_back();
-						message.pop_back();
+						std::string author;
 
-						if (!OnUserMessage(message_id, name, message))
-							m_Running = false;
+						if (pos != std::string::npos)
+						{
+							pos -= 2;
+
+							do
+							{
+								author.push_back(buffer[pos--]);
+							} while (buffer[pos] != '@' && buffer[pos] != ':');
+
+							std::reverse(author.begin(), author.end());
+						}
+
+						if (has("PRIVMSG", pos))
+						{
+							Message msg;
+
+							auto get_tag = [&buffer = buffer](const std::string& tag)
+								{
+									size_t start = buffer.find(tag) + tag.length() + 1;
+									size_t end = buffer.find(';', start);
+									return buffer.substr(start, end - start);
+								};
+
+							size_t message_start = buffer.find(':', pos) + 1;
+							msg.text = buffer.substr(message_start, buffer.size() - message_start - 2);
+
+							msg.type = Message::Type::MESSAGE;
+							msg.id = get_tag("id");
+
+							msg.author.name = author;
+							msg.author.id = std::stoul(get_tag("user-id"));
+							msg.author.isMod = get_tag("mod") == "1";
+
+							if (!OnMessage(msg))
+								m_Running = false;
+						}
+						else if (has("JOIN", pos))
+						{
+							Message msg;
+
+							msg.author.name = author;
+							msg.author.id = INVALID_AUTHOR_ID;
+							msg.type = Message::Type::JOIN;
+
+							if (!OnMessage(msg))
+								m_Running = false;
+						}
+						else if (has("PART", pos))
+						{
+							Message msg;
+
+							msg.author.name = author;
+							msg.author.id = INVALID_AUTHOR_ID;
+							msg.type = Message::Type::LEAVE;
+
+							if (!OnMessage(msg))
+								m_Running = false;
+						}
 					}
 
 					buffer.clear();
