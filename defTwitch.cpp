@@ -1,7 +1,5 @@
 #include "defTwitch.hpp"
 
-#include <iostream>
-
 namespace def::twitch
 {
 	Chat::Chat()
