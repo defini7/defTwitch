@@ -2,6 +2,8 @@
 #include <fstream>
 #include <string>
 
+#include "defTwitch.hpp"
+
 bool ReadFile(const char* filename, std::string& output)
 {
 	std::ifstream ifs(filename);
@@ -18,8 +20,6 @@ bool ReadFile(const char* filename, std::string& output)
 	return true;
 }
 
-#include "defTwitch.hpp"
-
 class MyChat : public def::twitch::Chat
 {
 public:
@@ -32,15 +32,31 @@ public:
 			oauth.pop_back();
 
 			Initialise(oauth, "def1ni7");
+
 		}
 		else
 			std::cerr << "can't read auth.txt file" << std::endl;
+
+		srand(time(0));
 	}
 
 protected:
-	bool OnUserMessage(const std::string& message_id, const std::string& name, const std::string& text) override
+	bool OnMessage(const def::twitch::Message& message) override
 	{
-		std::cout << name << ": " << text << std::endl;
+		switch (message.type)
+		{
+		case def::twitch::Message::Type::JOIN: std::cout << "User " << message.author.name << " has joined!" << std::endl; break;
+		case def::twitch::Message::Type::LEAVE: std::cout << "User " << message.author.name << " has left!" << std::endl; break;
+		
+		case def::twitch::Message::Type::MESSAGE:
+		{
+			if (message.text.starts_with("!roll_dice"))
+				Reply(message.id, std::to_string(1 + rand() % 6));
+		}
+		break;
+
+		}
+
 		return true;
 	}
 };
