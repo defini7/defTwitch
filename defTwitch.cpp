@@ -4,7 +4,7 @@ namespace def::twitch
 {
 	Chat::Chat()
 	{
-		m_Socket = INVALID_SOCKET;
+		m_Socket = InvalidSocket;
 	}
 
 	Chat::Chat(const std::string& auth, const std::string& nick)
@@ -14,13 +14,21 @@ namespace def::twitch
 
 	Chat::~Chat()
 	{
+#ifdef _WIN32
 		WSACleanup();
+#else
+
+#endif
 	}
 
 	bool Chat::Initialise(const std::string& oauth, const std::string& nick)
 	{
-		if (!InitialiseWSA())
+#ifdef _WIN32
+		WSADATA wsaData;
+
+		if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0)
 			return false;
+#endif
 
 		if (!ConnectToTwitch(6667))
 			return false;
@@ -29,10 +37,15 @@ namespace def::twitch
 		SendToSocket("NICK " + nick + "\r\n");
 		SendToSocket("CAP REQ :twitch.tv/tags twitch.tv/commands twitch.tv/membership\r\n");
 
+#ifdef _WIN32
 		u_long mode = 0;
 
 		if (ioctlsocket(m_Socket, FIONBIO, &mode) != NO_ERROR)
 			return false;
+#else
+		if (fcntl(m_Socket, F_SETFL, O_NONBLOCK) == -1)
+			return false;
+#endif
 
 		char responce[RESPONCE_SIZE];
 		std::string buffer;
@@ -93,12 +106,6 @@ namespace def::twitch
 		SendToSocket("@reply-parent-msg-id=" + message_id + " PRIVMSG #" + m_Channel + " :" + text + "\r\n");
 	}
 
-	bool Chat::InitialiseWSA()
-	{
-		WSADATA wsaData;
-		return WSAStartup(MAKEWORD(2, 2), &wsaData) == 0;
-	}
-
 	bool Chat::ConnectToTwitch(const uint32_t port)
 	{
 		struct addrinfo* addr = nullptr;
@@ -108,10 +115,12 @@ namespace def::twitch
 
 		m_Socket = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 
-		if (m_Socket == INVALID_SOCKET)
+		freeaddrinfo(addr);
+
+		if (m_Socket == InvalidSocket)
 			return false;
 
-		if (connect(m_Socket, addr->ai_addr, addr->ai_addrlen) == SOCKET_ERROR)
+		if (connect(m_Socket, addr->ai_addr, addr->ai_addrlen) == SocketError)
 			return false;
 
 		return true;
@@ -129,7 +138,7 @@ namespace def::twitch
 
 		while (m_Running)
 		{
-			int count = recv(m_Socket, responce, RESPONCE_SIZE, 0);
+			int count = (int)recv(m_Socket, responce, RESPONCE_SIZE, 0);
 
 			for (int i = 0; i < count; i++)
 			{

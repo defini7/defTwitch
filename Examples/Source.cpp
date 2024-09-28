@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 
-#include "defTwitch.hpp"
+#include "../defTwitch.hpp"
 
 bool ReadFile(const char* filename, std::string& output)
 {

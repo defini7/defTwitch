@@ -3,11 +3,30 @@
 
 #include <string>
 #include <thread>
+#include <atomic>
+#include <algorithm>
 
-#include <WinSock2.h>
-#include <WS2tcpip.h>
+#ifdef _WIN32
+	#include <WinSock2.h>
+	#include <WS2tcpip.h>
 
-#pragma comment(lib, "ws2_32.lib")
+	#pragma comment(lib, "ws2_32.lib")
+#else
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#include <fcntl.h>
+	#include <netdb.h>
+#endif
+
+#ifdef _WIN32
+	typedef SOCKET Socket;
+	#define InvalidSocket INVALID_SOCKET
+	#define SocketError SOCKET_ERROR
+#else
+	typedef int Socket;
+	#define InvalidSocket -1
+	#define SocketError -1
+#endif
 
 namespace def::twitch
 {
@@ -56,15 +75,13 @@ namespace def::twitch
 		virtual bool OnMessage(const Message& message) = 0;
 
 	private:
-		static bool InitialiseWSA();
-
 		bool ConnectToTwitch(const uint32_t port);
 		void SendToSocket(const std::string& text);
 
 		void MainLoop();
 
 	private:
-		SOCKET m_Socket;
+		Socket m_Socket;
 
 		std::thread m_Thread;
 		std::atomic<bool> m_Running;
