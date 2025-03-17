@@ -2,9 +2,9 @@
 #define DEF_TWITCH_HPP
 
 #include <string>
-#include <thread>
 #include <atomic>
 #include <algorithm>
+#include <thread>
 
 #ifdef _WIN32
 	#include <WinSock2.h>
@@ -30,7 +30,7 @@
 
 namespace def::twitch
 {
-	constexpr size_t RESPONCE_SIZE = 1024;
+	constexpr size_t RESPONCE_SIZE = 256;
 	constexpr uint32_t INVALID_AUTHOR_ID = uint32_t(-1);
 
 	struct Message
