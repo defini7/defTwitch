@@ -110,7 +110,9 @@ namespace def::twitch
 	{
 		struct addrinfo* addr = nullptr;
 
-		if (getaddrinfo("irc.chat.twitch.tv", std::to_string(port).c_str(), nullptr, &addr) != 0)
+		std::string portStr = std::to_string(port);
+		
+		if (getaddrinfo("irc.chat.twitch.tv", portStr.c_str(), nullptr, &addr) != 0)
 			return false;
 
 		m_Socket = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
